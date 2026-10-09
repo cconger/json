@@ -477,10 +477,11 @@ impl<'de> de::Deserialize<'de> for NumberKey {
                 formatter.write_str("a valid number field")
             }
 
-            fn visit_str<E>(self, s: &str) -> Result<(), E>
+            fn visit_newtype_struct<D>(self, deserializer: D) -> Result<(), D::Error>
             where
-                E: de::Error,
+                D: de::Deserializer<'de>,
             {
+                let s = String::deserialize(deserializer)?;
                 if s == TOKEN {
                     Ok(())
                 } else {
@@ -687,11 +688,25 @@ impl<'de> Deserializer<'de> for NumberFieldDeserializer {
     where
         V: de::Visitor<'de>,
     {
+        visitor.visit_newtype_struct(serde::de::value::BorrowedStrDeserializer::new(TOKEN))
+    }
+
+    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: de::Visitor<'de>,
+    {
         visitor.visit_borrowed_str(TOKEN)
     }
 
+    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: de::Visitor<'de>,
+    {
+        self.deserialize_str(visitor)
+    }
+
     forward_to_deserialize_any! {
-        bool u8 u16 u32 u64 u128 i8 i16 i32 i64 i128 f32 f64 char str string seq
+        bool u8 u16 u32 u64 u128 i8 i16 i32 i64 i128 f32 f64 char seq
         bytes byte_buf map struct option unit newtype_struct ignored_any
         unit_struct tuple_struct tuple enum identifier
     }

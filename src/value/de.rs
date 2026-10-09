@@ -1343,7 +1343,7 @@ impl<'de> DeserializeSeed<'de> for KeyClassifier {
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_str(self)
+        deserializer.deserialize_any(self)
     }
 }
 
@@ -1358,12 +1358,23 @@ impl<'de> Visitor<'de> for KeyClassifier {
     where
         E: de::Error,
     {
-        match s {
+        Ok(KeyClass::Map(s.to_owned()))
+    }
+
+    fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: de::Deserializer<'de>,
+    {
+        // Only the synthetic key deserializers for Number and RawValue emit a
+        // newtype. JSON object keys (even those whose text matches a private
+        // token) are always delivered as strings.
+        let s = String::deserialize(deserializer)?;
+        match s.as_str() {
             #[cfg(feature = "arbitrary_precision")]
             crate::number::TOKEN => Ok(KeyClass::Number),
             #[cfg(feature = "raw_value")]
             crate::raw::TOKEN => Ok(KeyClass::RawValue),
-            _ => Ok(KeyClass::Map(s.to_owned())),
+            _ => Ok(KeyClass::Map(s)),
         }
     }
 
@@ -1372,13 +1383,7 @@ impl<'de> Visitor<'de> for KeyClassifier {
     where
         E: de::Error,
     {
-        match s.as_str() {
-            #[cfg(feature = "arbitrary_precision")]
-            crate::number::TOKEN => Ok(KeyClass::Number),
-            #[cfg(feature = "raw_value")]
-            crate::raw::TOKEN => Ok(KeyClass::RawValue),
-            _ => Ok(KeyClass::Map(s)),
-        }
+        Ok(KeyClass::Map(s))
     }
 }
 
